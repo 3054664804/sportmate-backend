@@ -64,7 +64,9 @@ sportmate-backend/
 ├── routers.py           # 全部 HTTP 路由
 ├── tests/
 │   ├── conftest.py      # 内存库 fixture、注册/建活动辅助函数
-│   └── test_flow.py     # 端到端业务流程测试
+│   ├── test_flow.py     # 端到端业务流程测试
+│   └── test_startup.py  # 启动路径与路由注册回归
+├── push-to-github.bat   # 一键推送到 GitHub（含常见报错指引）
 ├── requirements.txt     # 运行期依赖（4 个）
 └── requirements-dev.txt # 测试依赖
 ```
@@ -222,7 +224,39 @@ curl -s -X POST $BASE/activities/$ACT_ID/attendance -H "Authorization: Bearer $O
 
 ---
 
-## 9. 关键约定（踩过的坑）
+## 9. 推送到 GitHub
+
+本地仓库已经初始化好（分支 `main`，远程 `origin` 已指向
+`https://github.com/3054664804/sportmate-backend.git`），**只差一次推送**。
+
+推送需要 GitHub 登录授权，必须在**你自己的终端**里完成：
+
+**方式一（推荐）**：双击项目根目录的 `push-to-github.bat`
+→ 按提示在 `https://github.com/new` 建一个名为 `sportmate-backend` 的空仓库
+（**不要**勾选 "Add a README file"）→ 回到窗口按任意键，浏览器会弹出授权，点 Authorize。
+
+**方式二（手动）**：
+
+```powershell
+cd C:\Users\30546\Documents\deepseek-harness\default-workspace\sportmate-backend
+git push -u origin main
+```
+
+常见报错与解法：
+
+| 报错 | 原因与处理 |
+|---|---|
+| `Repository not found` | 远程仓库还没建，先去 `https://github.com/new` 创建 |
+| `rejected ... (fetch first)` | 建仓库时勾选了 README，先 `git pull --rebase origin main` 再 push |
+| `could not read Username` | 授权窗口被关掉了，重跑一次并完成浏览器登录 |
+| `schannel: AcquireCredentialsHandle failed` | 证书/凭据后端问题，执行 `git config --global http.sslBackend openssl` 后重试 |
+
+> 若要用别的账号或仓库名，改远程地址即可：
+> `git remote set-url origin https://github.com/<用户名>/<仓库名>.git`
+
+---
+
+## 10. 关键约定（踩过的坑）
 
 1. **时间一律用带偏移的 ISO-8601**，例如 `2026-10-12T19:00:00+08:00`。库里统一存 **朴素 UTC**，服务层在入库前用 `ensure_aware_utc()` 归一化。
    > 不带偏移的时间串会被当作 UTC，在东八区会产生 8 小时偏差——这是本项目开发中真实出现过的 bug，已在 `services.create_activity` 与 `match_activities` 两处修正并加了测试。
@@ -237,7 +271,7 @@ curl -s -X POST $BASE/activities/$ACT_ID/attendance -H "Authorization: Bearer $O
 
 ---
 
-## 10. 后续可做
+## 11. 后续可做
 
 - **并发抢位**：当前"检查容量 → 写入报名"之间存在竞态窗口，高并发下可能超员。生产环境应加唯一约束 + 事务重试，或直接改成 `SELECT ... FOR UPDATE`。
 - **推送通知**：活动变更/临期提醒（WebSocket 或微信服务号模板消息）。
