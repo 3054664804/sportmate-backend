@@ -24,6 +24,32 @@ def _engine_kwargs(url: str) -> dict:
     return {"pool_pre_ping": True}
 
 
+def sqlite_parent_dir(url: str, cwd: Path | None = None) -> Path | None:
+    """Return the directory that must exist for ``url`` to be openable.
+
+    Pure function (no filesystem access) so the path-resolution rule can be
+    unit-tested directly.
+
+    Path resolution matches what SQLite itself does: relative paths are
+    resolved against the current working directory, absolute paths are used
+    as-is. Returns ``None`` for non-SQLite URLs and in-memory databases.
+    """
+    if not url.startswith("sqlite"):
+        return None
+
+    marker = "///"
+    if marker not in url:
+        return None  # bare "sqlite://" or malformed
+    raw_path = url.split(marker, 1)[1]
+    if not raw_path or raw_path.startswith(":memory:"):
+        return None
+
+    candidate = Path(raw_path)
+    if not candidate.is_absolute():
+        candidate = (cwd or Path.cwd()) / candidate
+    return candidate.parent
+
+
 def _ensure_sqlite_directory(url: str) -> None:
     """Create the parent directory of a file-backed SQLite database.
 
@@ -31,20 +57,14 @@ def _ensure_sqlite_directory(url: str) -> None:
     ``sqlite3.OperationalError: unable to open database file`` because SQLite
     will create the file but never the directory.
     """
-    if not url.startswith("sqlite"):
+    parent = sqlite_parent_dir(url)
+    if parent is None:
         return
-
-    raw_path = url.split("///", 1)[-1]
-    if not raw_path or raw_path.startswith(":memory:"):
-        return
-
-    candidate = Path(raw_path)
-    if candidate.is_absolute():
-        Path(candidate).parent.mkdir(parents=True, exist_ok=True)
-    else:
-        # Relative SQLite URLs are resolved against the process CWD, but the
-        # default configuration already produces an absolute path.
-        (config.BASE_DIR / candidate).parent.mkdir(parents=True, exist_ok=True)
+    try:
+        parent.mkdir(parents=True, exist_ok=True)
+    except OSError:
+        # e.g. a read-only mount: let the engine raise a clear error later.
+        pass
 
 
 _ensure_sqlite_directory(config.DATABASE_URL)

@@ -1,0 +1,38 @@
+# Render 蓝图：把本项目部署成公网可访问的 FastAPI 服务
+#
+# 用法（推荐）：登录 Render 后打开下面这个链接，它会自动读取本文件并一键部署：
+#   https://render.com/deploy?repo=https://github.com/3054664804/sportmate-backend
+#
+# 注意 rootDir 的设置取决于仓库里文件的实际位置：
+#   - 若 main.py 在仓库根目录            → rootDir 留空（删掉这一行）
+#   - 若 main.py 在 sportmate-backend/ 里 → 保持 rootDir: sportmate-backend
+services:
+  - type: web
+    name: sportmate-backend
+    runtime: python
+    plan: free
+    region: singapore # 亚洲节点，国内访问更快（可选 oregon / frankfurt / ohio）
+    branch: main
+    # 仓库里项目文件多套了一层目录时，用这个指向真正的项目根
+    rootDir: sportmate-backend
+    buildCommand: pip install -r requirements.txt
+    # Render 会把公网端口注入 $PORT，必须用它启动，不能写死 8000
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: PYTHON_VERSION
+        value: '3.12.5'
+      # ⚠️ 免费实例没有持久磁盘：重新部署或实例重启后 SQLite 数据会被重置。
+      #    演示/验收期间只要不重新部署，注册的账号和活动就会保留。
+      #    若要永久保存：升级付费实例后启用下面的 disk，
+      #    并把 SPORTMATE_DATABASE_URL 改成 sqlite:////var/data/sportmate.db
+      #    （注意是四个斜杠，表示绝对路径）
+      - key: SPORTMATE_DATABASE_URL
+        value: sqlite:///./data/sportmate.db
+      - key: SPORTMATE_TOKEN_TTL_DAYS
+        value: '30'
+    # disk:
+    #   name: sportmate-data
+    #   mountPath: /var/data
+    #   sizeGB: 1
