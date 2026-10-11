@@ -86,3 +86,30 @@ def test_openapi_has_expected_routes():
     assert "/match/parse" in paths
     assert "/activities/{activity_id}/checkin" in paths
     assert "/activities/{activity_id}/attendance" in paths
+
+
+def test_error_contract_always_uses_string_detail(client):
+    """``detail`` must be a string on every error, including 422.
+
+    FastAPI's default 422 body carries a list of error objects, which forces
+    frontends to branch on the type. The app normalises it, and this test keeps
+    that contract from silently regressing.
+    """
+    # 422 - pydantic validation
+    invalid = client.post(
+        "/auth/register", json={"username": "ab", "password": "1", "nickname": ""}
+    )
+    assert invalid.status_code == 422
+    body = invalid.json()
+    assert isinstance(body["detail"], str), "422 的 detail 必须是字符串"
+    assert body["error"] == "validation_error"
+
+    # 401 - missing token
+    unauthorized = client.get("/me")
+    assert unauthorized.status_code == 401
+    assert isinstance(unauthorized.json()["detail"], str)
+
+    # 404 - business rule
+    missing = client.get("/activities/999999")
+    assert missing.status_code == 404
+    assert isinstance(missing.json()["detail"], str)

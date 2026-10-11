@@ -10,7 +10,8 @@ from __future__ import annotations
 
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, status
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
@@ -53,6 +54,55 @@ async def service_error_handler(request: Request, exc: services.ServiceError) ->
     return JSONResponse(
         status_code=exc.status_code,
         content={"detail": exc.message, "error": "service_error"},
+    )
+
+
+# Chinese labels for the pydantic error types a frontend is most likely to hit.
+_FIELD_LABELS = {
+    "username": "用户名",
+    "password": "密码",
+    "nickname": "昵称",
+    "campus": "校区",
+    "title": "活动标题",
+    "sport": "运动项目",
+    "capacity": "人数上限",
+    "start_time": "开始时间",
+    "end_time": "结束时间",
+    "score": "评分",
+    "code": "签到码",
+}
+
+
+@app.exception_handler(RequestValidationError)
+async def validation_error_handler(
+    request: Request, exc: RequestValidationError
+) -> JSONResponse:
+    """Normalise 422 responses so ``detail`` is always a plain string.
+
+    FastAPI's default is a list of error objects, which forces every frontend
+    to special-case it (``err.detail`` being an array on 422 but a string on
+    every other error). Flattening it here keeps the error contract uniform:
+
+        {"detail": "用户名 至少 3 个字符", "error": "validation_error"}
+    """
+    problems: list[str] = []
+    for err in exc.errors()[:5]:  # cap the message so it stays readable
+        location = [str(part) for part in err.get("loc", []) if part != "body"]
+        field = location[-1] if location else ""
+        label = _FIELD_LABELS.get(field, field or "请求参数")
+        message = err.get("msg", "格式不正确")
+        message = message.replace("String should have at least", "长度至少为")
+        message = message.replace("String should have at most", "长度最多为")
+        message = message.replace("Field required", "缺少必填项")
+        message = message.replace("Input should be a valid", "格式不正确:")
+        message = message.replace(" characters", " 个字符")
+        message = message.replace("character", " 个字符")
+        problems.append(f"{label} {message}" if label not in message else message)
+
+    detail = "；".join(problems) if problems else "请求参数校验失败"
+    return JSONResponse(
+        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+        content={"detail": detail, "error": "validation_error"},
     )
 
 
