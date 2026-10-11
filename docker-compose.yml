@@ -1,0 +1,14 @@
+services:
+  api:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      SPORTMATE_DATABASE_URL: sqlite:////data/sportmate.db
+      SPORTMATE_TOKEN_TTL_DAYS: "30"
+    volumes:
+      - sportmate-data:/data
+    restart: unless-stopped
+
+volumes:
+  sportmate-data:

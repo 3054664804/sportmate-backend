@@ -1,0 +1,7 @@
+# Runtime dependencies for the campus sports matchmaking backend.
+# NOTE: keep this file ASCII-only, otherwise pip may fail to decode it
+# on Windows where the default locale encoding is GBK.
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+pydantic==2.10.4
+SQLAlchemy==2.1.2
