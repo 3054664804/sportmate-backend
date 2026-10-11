@@ -3,9 +3,10 @@
 # 用法（推荐）：登录 Render 后打开下面这个链接，它会自动读取本文件并一键部署：
 #   https://render.com/deploy?repo=https://github.com/3054664804/sportmate-backend
 #
-# 注意 rootDir 的设置取决于仓库里文件的实际位置：
-#   - 若 main.py 在仓库根目录            → rootDir 留空（删掉这一行）
-#   - 若 main.py 在 sportmate-backend/ 里 → 保持 rootDir: sportmate-backend
+# 说明：本仓库的文件就放在仓库根目录（main.py 在第一层），
+#       所以不需要 rootDir 设置 —— 留空即为仓库根。
+#       （旧版本文件曾套在 sportmate-backend/ 子目录里，那时需要 rootDir，
+#         但推送后结构已变平，删掉该行否则 Render 会找不到 requirements.txt）
 services:
   - type: web
     name: sportmate-backend
@@ -13,8 +14,6 @@ services:
     plan: free
     region: singapore # 亚洲节点，国内访问更快（可选 oregon / frankfurt / ohio）
     branch: main
-    # 仓库里项目文件多套了一层目录时，用这个指向真正的项目根
-    rootDir: sportmate-backend
     buildCommand: pip install -r requirements.txt
     # Render 会把公网端口注入 $PORT，必须用它启动，不能写死 8000
     startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
